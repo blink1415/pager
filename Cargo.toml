@@ -1,0 +1,8 @@
+[package]
+name = "pager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crossterm = { version = "0.28", features = ["use-dev-tty"] }
+libc = "0.2"
