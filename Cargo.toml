@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+clap = { version = "4.5.60", features = ["derive"] }
 crossterm = { version = "0.28", features = ["use-dev-tty"] }
-libc = "0.2"
+rustix = { version = "1.0", features = ["std"] }
+rustix-openpty = "0.2"
