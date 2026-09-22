@@ -9,3 +9,4 @@ crossterm = { version = "0.28", features = ["use-dev-tty"] }
 regex = "1.11"
 rustix = { version = "1.0", features = ["std", "termios"] }
 rustix-openpty = "0.2"
+toml = "0.9"

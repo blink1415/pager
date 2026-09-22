@@ -31,6 +31,7 @@ All flags are optional. Default split is `\n\n`.
 | `--cmd <SHELL>` | Run a command and page its output, instead of reading stdin. |
 | `--group-by <REGEX>` | Keep consecutive chunks on one page while this regex captures the same text from their first line. |
 | `--difft` | Shorthand for difftastic output: one page per file. |
+| `--config <PATH>` | Config file with keybinds. Default: `$XDG_CONFIG_HOME/pager/config.toml`. |
 
 ### `--group-by`
 
@@ -103,6 +104,76 @@ pager --cmd "GIT_EXTERNAL_DIFF=difft git diff --ext-diff" --difft
 `git log -p` puts each commit's metadata before the first file header. That
 metadata has no path to group on, so it becomes its own page ahead of the files
 it introduces.
+
+## Config
+
+Pager reads `$XDG_CONFIG_HOME/pager/config.toml` (falling back to
+`~/.config/pager/config.toml`), or whatever `--config` points at. A missing
+default config is fine; a missing `--config` path is an error.
+
+```toml
+line_pattern = '^\s*\d*\s+(\d+)\s'
+
+[[bind]]
+key = "o"
+run = 'zellij action edit --in-place "$(git rev-parse --show-toplevel)/$PAGER_FILE" -l "${PAGER_LINE:-1}"'
+```
+
+Each `[[bind]]` maps a key to a shell command, run with `sh -c`. Binds are
+checked before the built-in keys, so they can override them. `key` is a single
+character, or one of `enter`, `tab`, `esc`, `space`, `backspace`, `f1`–`f12`.
+
+The page is passed in the environment rather than substituted into the command,
+so paths with spaces or quotes cannot break it:
+
+| Variable | Value |
+| --- | --- |
+| `PAGER_FILE` | The current page's title — the file path, under `--difft`. Empty if the page has none. |
+| `PAGER_LINE` | Line number pulled from the top visible row by `line_pattern`. Empty if unset or unmatched. |
+| `PAGER_PAGE` | Current page number, 1-based. |
+| `PAGER_TOTAL` | Total pages. |
+
+Commands are not waited on, so a bind that takes over the terminal will not
+block the pager. Output is discarded; a non-zero exit is reported in the status
+bar. Nothing is quoted for you — quote `"$PAGER_FILE"` yourself.
+
+### `line_pattern`
+
+An optional regex, matched against each visible row from the top down, on the
+ANSI-stripped text. The first row that matches sets `PAGER_LINE` from capture
+group 1 (or the whole match). Without it, `PAGER_LINE` is empty.
+
+For difftastic, treat this as **approximate**. Its gutter right-aligns the
+old-file and new-file line numbers in fixed-width columns, and a row showing
+only an old-file number is padded so it looks exactly like a new-file one. The
+pattern above therefore reports the old number on removal-only rows, landing you
+near the change rather than on it. Use `--display inline`; side-by-side puts the
+new-file number after the old file's text, where no regex can reliably find it.
+
+## Opening the current file in an editor
+
+Because binds are just shell commands, pager needs to know nothing about your
+multiplexer. Under zellij, `edit --in-place` suspends pager's own pane, opens
+`$EDITOR` there, and restores pager when the editor exits — like `v` in `less`:
+
+```toml
+[[bind]]
+key = "o"
+run = 'zellij action edit --in-place "$(git rev-parse --show-toplevel)/$PAGER_FILE" -l "${PAGER_LINE:-1}"'
+```
+
+Two things to know:
+
+- The command must run **inside** the zellij pane. That is what pager does, but
+  the same command typed in another session silently does nothing.
+- difftastic prints repo-relative paths, so resolve them against the repo root
+  with `git rev-parse --show-toplevel`, as above.
+
+To open in a new pane instead of in place, drop `--in-place` and add a direction:
+
+```toml
+run = 'zellij action edit "$(git rev-parse --show-toplevel)/$PAGER_FILE" -l "${PAGER_LINE:-1}" -d down'
+```
 
 ## Keys
 
